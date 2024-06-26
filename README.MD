@@ -1,7 +1,8 @@
-##Roadmap
+#Roadmap
 All of the roadmap are handled by [cupglassdev](https://github.com/cupglassdev)
-| Task           | Completed |
-|----------------|-----------|
+
+| Task                                                                                                       | Completed |
+|:-----------------------------------------------------------------------------------------------------------|:-----------|
 | Make a [core](https://github.com/bulanskrip/core) implementation (including the parser,lexer,ast,and more) | [ ]
 | Add a module implementation (as `require()` function / `import` keyword) | [ ]
 | Implement module caching | [ ]      
