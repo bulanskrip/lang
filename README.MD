@@ -1,5 +1,5 @@
 #Roadmap
-All of the roadmap are handled by [cupglassdev](https://github.com/cupglassdev) (nuh uh [x] )
+All of the roadmap are handled by [cupglassdev](https://github.com/cupglassdev) (nuh uh - [x] )
 
 | Task                                                                                                       | Completed |
 |:-----------------------------------------------------------------------------------------------------------|:-----------|
