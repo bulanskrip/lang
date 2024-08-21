@@ -1,0 +1,74 @@
+whitespaces = _{ " " | "\t" }
+num     = @{ subtract? ~ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
+int   = @{ subtract? ~ ASCII_DIGIT+ }
+
+operator   =  { add | subtract | multiply | divide | power | or | and | ternaryIf |ternaryElse }
+add        = @{ "+" }
+subtract   = @{ "-" }
+multiply   = @{ "*" }
+divide     = @{ "/" }
+power      = @{ "^" }
+or         = @{ "||" }
+and        = @{ "&&" }
+// same, but differs in function
+nullable = @{"?"}
+ternaryIf = @{"?"}
+ternaryElse = @{":"}
+
+bool = { true | false }
+true    = { "true" }
+false   = { "false" }
+
+reserved = { var | const | if | case | default | switch | await | void | bool | "import" | new |"type" |class|"mod"}
+if       = @{ "if" }
+case     = @{ "case" }
+default  = @{ "default" }
+switch   = @{ "switch" }
+await    = @{ "await" }
+void     = @{ "void" }
+var      = @{ "var" }
+const    = @{ "const" }
+fn       = @{ "fn" }
+async    = @{ "async" }
+class = @{"class"}
+new = @{"new"}
+value = {(string | void | bool | int | num | array | evaluate | ((new ~whitespaces+)?~ ident~("." ~ ident)*)) ~ (("." ~ ident) | (whitespaces*)~caller | index)*}
+valueContainer             =  {value ~ whitespaces* ~(operator ~ whitespaces* ~ valueContainer ~ whitespaces*)* }
+identBase         = _{ (ASCII_ALPHA | "$" | "_" |int)* }
+ident             = @{ !reserved ~ (ASCII_ALPHA | "$" | "_") ~ identBase }
+caller            =  { "(" ~ whitespaces* ~ (valueContainer ~whitespaces* ~ ("," ~ whitespaces* ~ valueContainer ~ whitespaces*)*)? ~ ")" }
+typeCaller        =  { "(" ~ whitespaces*~(typeContainer ~ whitespaces* ~("," ~whitespaces*~ typeContainer~whitespaces*)*)? ~ ")" }
+argument = {typeContainer~ whitespaces+ ~ ident}
+varargs = {".."~whitespaces*~argument}
+arguments = {"(" ~ whitespaces*~(argument ~ whitespaces*~(("," ~whitespaces*~ argument~whitespaces*)* ~ ("," ~whitespaces*~varargs~whitespaces*)?)?|(whitespaces*~varargs~whitespaces*)) ~ ")" }
+index = @{"["~valueContainer~"]"}
+importModule      =  { "import" ~ whitespaces* ~ string ~ whitespaces* ~ "to"~ whitespaces+ ~ ident }
+evaluate          =  { "(" ~ valueContainer ~ ")" }
+
+array = {"[" ~ whitespaces* ~ (valueContainer ~whitespaces* ~ ("," ~ whitespaces* ~ valueContainer ~ whitespaces*)*)? ~ "]"}
+string_contentQuote = {(!"\"" ~ ANY)*}
+string_contentApos = {(!"'" ~ ANY)*}
+string_contentBacktick = {(!"`" ~ ANY)*}
+string       = { ("\"" ~ string_contentQuote ~ "\"") | ("'" ~ string_contentApos ~ "'") | ("`" ~ string_contentBacktick ~ "`") }
+typeContainer = {(string|type)~(whitespaces*~("|"~whitespaces*~(string|type))+)?}
+type         =  { (ident ~ ("."~ident)* ~ typeCaller? ~ nullable?) | void }
+newVariable  =  { (const~whitespaces+ )? ~ typeContainer ~ whitespaces+ ~ ident }
+declareQuick =  { ident ~whitespaces*~ ":=" ~whitespaces*~ valueContainer }
+declare      =  { (newVariable | (value ~ !caller)) ~whitespaces*~ "=" ~whitespaces*~ valueContainer}
+nl           = _{ NEWLINE | ";" }
+block        =  { whitespaces* ~"{" ~ codes ~ "}" ~whitespaces*}
+customFnBlock = { (async ~ whitespaces+)? ~ typeContainer ~ whitespaces+ ~ ident ~whitespaces* ~ arguments? ~ block }
+localFnBlock = {fn ~ whitespaces+ ~customFnBlock}
+inlineFnBlock      =  { (async~ whitespaces+)? ~fn ~whitespaces* ~ arguments? ~ block }
+newBlock   =  { !async~ "new" ~ whitespaces* ~ arguments?~ block }
+ifBlock      =  { if~ whitespaces* ~ valueContainer ~ block }
+caseBlock    =  { case ~ whitespaces*  ~ valueContainer ~ block }
+defaultBlock =  { default ~whitespaces*~ block }
+moduleBlock = {"mod"~whitespaces+~ident~whitespaces*~block}
+switchBlock  =  { switch ~ whitespaces*  ~ valueContainer ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (caseBlock|defaultBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}" }
+classBlock  =  { class ~ whitespaces*  ~ ident ~ (whitespaces* ~ nullable? ~ whitespaces* ~ arguments ~ whitespaces*)? ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (newBlock|customFnBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}" }
+localType = {"type"~whitespaces+~ident~whitespaces*~"="~whitespaces*~typeContainer}
+comment = { ("--[[" ~ (!"--]]" ~ ANY)* ~ "--]]")|("--" ~ (!"--" ~ ANY)* ~ "--")}
+code         =  { comment | localType | localFnBlock | moduleBlock | importModule | declareQuick | declare | ifBlock | classBlock | switchBlock  | value }
+codes        = _{whitespaces*~nl* ~ whitespaces* ~ code ~ whitespaces* ~(nl+ ~whitespaces* ~ code ~ whitespaces*)* ~ nl*}
+program      =  _{ SOI ~ codes ~ EOI }
