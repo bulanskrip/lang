@@ -1,0 +1,92 @@
+whitespaces = _{ (" " | "\t") }
+num     = @{ subtract? ~ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
+int   = @{ subtract? ~ ASCII_DIGIT+ }
+
+operator   =  { calc | nullOr | ternaryIf | ternaryElse | orCond | andCond}
+calc = _{or|and|add | subtract | multiply | divide | power | shiftLeft |unsgShiftLeft|shiftRight|unsgShiftRight}
+add        = @{ "+" }
+subtract   = @{ "-" }
+multiply   = @{ "*" }
+divide     = @{ "/" }
+power      = @{ "^" }
+or = @{"|"}
+and = @{"&"}
+orCond = @{ "||" }
+andCond  = @{ "&&" }
+nullOr = @{"??"}
+unsgShiftLeft = @{"<<<"}
+shiftLeft = @{"<<"}
+unsgShiftRight = @{">>>"}
+shiftRight = @{">>"}
+ternaryIf = @{"?"}
+ternaryElse = @{":"}
+// hes alone..
+nullable = @{"?"}
+
+bool = { true | false }
+true    = { "true" }
+false   = { "false" }
+
+reserved = { const | "if" | "case" | "default" | "switch" | await | void | bool | "import" | new |"type" |"class"|"mod"|pub|"comp"}
+await    = @{ "await" }
+void     = @{ "void" }
+const    = @{ "const" }
+fn       = @{ "fn" }
+async    = @{ "async" }
+new = @{"new"}
+pub = @{"pub"}
+literal = {string | void | bool | int|num | array | evaluate}
+value = {(literal | ((new ~whitespaces+)?~ ident~("." ~ ident)*)) ~ (("." ~ ident) | (whitespaces*)~caller | index)*}
+valueContainer             =  {value ~ whitespaces* ~(operator ~ whitespaces* ~ valueContainer ~ whitespaces*)* }
+identBase         = _{ (ASCII_ALPHA | "$" | "_" |int)* }
+ident             = @{ !reserved ~ (ASCII_ALPHA | "$" | "_") ~ identBase }
+caller            =  { "(" ~ whitespaces* ~ (valueContainer ~whitespaces* ~ ("," ~ whitespaces* ~ valueContainer ~ whitespaces*)*)? ~ ")" }
+typeCaller        =  { "<" ~ whitespaces*~(typeContainer ~ whitespaces* ~("," ~whitespaces*~ typeContainer~whitespaces*)*)? ~ ">" }
+argument = {typeContainer~ whitespaces+ ~ ident}
+varargs = {".."~whitespaces*~argument}
+argumentsBase = _{whitespaces*~nl*~whitespaces*~(argument ~ whitespaces*~(("," ~whitespaces*~ argument~whitespaces*)* ~ ("," ~whitespaces*~varargs~whitespaces*)?)?|(whitespaces*~varargs~whitespaces*))}
+arguments = {"(" ~argumentsBase~ ")" }
+typeArguments = {"<"~argumentsBase~">"}
+index = @{"["~valueContainer~"]"}
+importModule      =  { "import" ~ whitespaces* ~ string ~ whitespaces* ~ "to"~ whitespaces+ ~ ident }
+evaluate          =  { "(" ~ valueContainer ~ ")" }
+
+array = {"[" ~ whitespaces* ~ (valueContainer ~whitespaces* ~ ("," ~ whitespaces* ~ valueContainer ~ whitespaces*)*)? ~ "]"}
+string_contentQuote = {(!"\"" ~ ANY)*}
+string_contentApos = {(!"'" ~ ANY)*}
+string_contentBacktick = {(!"`" ~ ANY)*}
+string       = { ("\"" ~ string_contentQuote ~ "\"") | ("'" ~ string_contentApos ~ "'") | ("`" ~ string_contentBacktick ~ "`") }
+typeContainer = {(string|type)~(whitespaces*~("|"~whitespaces*~(string|type))+)?}
+type         =  { (ident ~ ("."~ident)* ~ typeCaller? ~ nullable?) | void }
+newVariable  =  { (pub ~ whitespaces+)? ~ (const~whitespaces+ )? ~ typeContainer ~ whitespaces+ ~ ident }
+declareQuick =  { ident ~whitespaces*~ ":=" ~whitespaces*~ valueContainer }
+declare      =  { (newVariable | (value ~ !caller)) ~whitespaces*~ "=" ~whitespaces*~ valueContainer}
+nl           = _{ NEWLINE | ";" }
+block        =  { whitespaces* ~"{" ~ codes ~ "}" ~whitespaces*}
+customFnBlock = { (async ~ whitespaces+)? ~ typeContainer ~ whitespaces+ ~ ident ~whitespaces* ~ arguments? ~ block }
+localFnBlock = {(pub ~ whitespaces+)? ~ "fn" ~ whitespaces+ ~customFnBlock}
+inlineFnBlock      =  { (async~ whitespaces+)? ~fn ~whitespaces* ~ arguments? ~ block }
+newBlock   =  { !async~ "new" ~ whitespaces* ~ arguments?~ block }
+ifBlock      =  { "if"~ whitespaces* ~ valueContainer ~ block }
+caseBlock    =  { "case" ~ whitespaces*  ~ valueContainer ~ block }
+defaultBlock =  { "default" ~whitespaces*~ block }
+moduleBlock = {(pub ~ whitespaces+)?~"mod"~whitespaces+~ident~whitespaces*~block}
+caseContainer = {whitespaces*  ~ valueContainer ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (caseBlock|defaultBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}"}
+switchBlock  =  { "switch" ~ caseContainer }
+matchBlock  =  { "match" ~ caseContainer }
+classBlock  =  { "class" ~ whitespaces+  ~ ident ~ (whitespaces* ~ ((nullable ~ whitespaces* ~ typeArguments)|(typeArguments ~ whitespaces* ~ nullable)|typeArguments) ~ whitespaces*)? ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (newBlock|customFnBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}" }
+inlineType = {decorators~(pub ~ whitespaces+)?~"type"~whitespaces+~ident~whitespaces*~"="~whitespaces*~typeContainer}
+typecompFnBlock = {decorators~(pub~whitespaces+)?~"typecomp"~whitespaces+~ident~whitespaces*~(arguments|typeArguments)~block}
+attributeValue = {literal|typeContainer}
+decorator = {"@"~whitespaces*~ ident}
+decorators = {whitespaces* ~ nl* ~ whitespaces* ~ decorator ~ whitespaces* ~ (nl+ ~ whitespaces* ~ decorators? ~ whitespaces*)* ~ nl+}
+return = {"return"~whitespaces+~valueContainer}
+comment = { ("--[[" ~ (!"--]]" ~ ANY)* ~ "--]]")|("--" ~ (!NEWLINE ~ ANY)*)}
+code         =  { comment | return | matchBlock | typecompFnBlock |inlineType | localFnBlock | moduleBlock | importModule | declareQuick | declare | ifBlock | classBlock | switchBlock  | value }
+// i hope this error will be fixed asap. this occurs on 2.6 🤌 codes        = _{blankWhitespaces ~ code ~(blankWhitespaces ~ code?)+}
+codes        = _{(whitespaces+)? ~ (nl+)? ~ (whitespaces+)? ~ code ~ (whitespaces* ~ nl+ ~ whitespaces* ~ code?)*}
+// workaround for 2.6 and onward. (RULE+)?
+// then on the code you MUST BE USING *, no, you cant use that + thingy
+blankWhitespaces = _{(whitespaces+)? ~ (nl+)? ~ (whitespaces+)?}
+blankWhitespacesComma = _{(whitespaces+)? ~ (",")? ~ (whitespaces+)?}
+program      =  { SOI ~ codes ~ EOI }
