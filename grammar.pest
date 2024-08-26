@@ -2,8 +2,8 @@ whitespaces = _{ (" " | "\t") }
 num     = @{ subtract? ~ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
 int   = @{ subtract? ~ ASCII_DIGIT+ }
 
-operator   =  { calc | nullOr | ternaryIf | ternaryElse | orCond | andCond}
-calc = _{or|and|add | subtract | multiply | divide | power | shiftLeft |unsgShiftLeft|shiftRight|unsgShiftRight}
+operator   =  { calc | ternaryIf | ternaryElse | orCond | andCond}
+calc = _{or|and|add | nullOr | subtract | multiply | divide | power | unsgShiftLeft |unsgShiftRight|shiftLeft |shiftRight}
 add        = @{ "+" }
 subtract   = @{ "-" }
 multiply   = @{ "*" }
@@ -27,7 +27,7 @@ bool = { true | false }
 true    = { "true" }
 false   = { "false" }
 
-reserved = { const | "if" | "case" | "default" | "switch" | await | void | bool | "import" | new |"type" |"class"|"mod"|pub|"comp"}
+reserved = { const | "if" | "case" | "default" | "switch" | await | void | bool | "import" | new |"type" |"class"|"mod"|pub|"typecomp"|"enum"}
 await    = @{ "await" }
 void     = @{ "void" }
 const    = @{ "const" }
@@ -43,7 +43,7 @@ ident             = @{ !reserved ~ (ASCII_ALPHA | "$" | "_") ~ identBase }
 caller            =  { "(" ~ whitespaces* ~ (valueContainer ~whitespaces* ~ ("," ~ whitespaces* ~ valueContainer ~ whitespaces*)*)? ~ ")" }
 typeCaller        =  { "<" ~ whitespaces*~(typeContainer ~ whitespaces* ~("," ~whitespaces*~ typeContainer~whitespaces*)*)? ~ ">" }
 argument = {typeContainer~ whitespaces+ ~ ident}
-varargs = {".."~whitespaces*~argument}
+varargs = {".."~nullable?~whitespaces*~argument}
 argumentsBase = _{whitespaces*~nl*~whitespaces*~(argument ~ whitespaces*~(("," ~whitespaces*~ argument~whitespaces*)* ~ ("," ~whitespaces*~varargs~whitespaces*)?)?|(whitespaces*~varargs~whitespaces*))}
 arguments = {"(" ~argumentsBase~ ")" }
 typeArguments = {"<"~argumentsBase~">"}
@@ -58,35 +58,37 @@ string_contentBacktick = {(!"`" ~ ANY)*}
 string       = { ("\"" ~ string_contentQuote ~ "\"") | ("'" ~ string_contentApos ~ "'") | ("`" ~ string_contentBacktick ~ "`") }
 typeContainer = {(string|type)~(whitespaces*~("|"~whitespaces*~(string|type))+)?}
 type         =  { (ident ~ ("."~ident)* ~ typeCaller? ~ nullable?) | void }
-newVariable  =  { (pub ~ whitespaces+)? ~ (const~whitespaces+ )? ~ typeContainer ~ whitespaces+ ~ ident }
+newVariable  =  { (decorators?~whitespaces*)?~(pub ~ whitespaces+)? ~ (const~whitespaces+ )? ~ typeContainer ~ whitespaces+ ~ ident }
 declareQuick =  { ident ~whitespaces*~ ":=" ~whitespaces*~ valueContainer }
-declare      =  { (newVariable | (value ~ !caller)) ~whitespaces*~ "=" ~whitespaces*~ valueContainer}
+declare      =  { ((value ~ !caller)|newVariable) ~whitespaces*~ calc? ~"=" ~whitespaces*~ valueContainer}
 nl           = _{ NEWLINE | ";" }
 block        =  { whitespaces* ~"{" ~ codes ~ "}" ~whitespaces*}
 customFnBlock = { (async ~ whitespaces+)? ~ typeContainer ~ whitespaces+ ~ ident ~whitespaces* ~ arguments? ~ block }
-localFnBlock = {(pub ~ whitespaces+)? ~ "fn" ~ whitespaces+ ~customFnBlock}
+localFnBlock = {decorators?~(pub ~ whitespaces+)? ~ "fn" ~ whitespaces+ ~customFnBlock}
 inlineFnBlock      =  { (async~ whitespaces+)? ~fn ~whitespaces* ~ arguments? ~ block }
 newBlock   =  { !async~ "new" ~ whitespaces* ~ arguments?~ block }
-ifBlock      =  { "if"~ whitespaces* ~ valueContainer ~ block }
-caseBlock    =  { "case" ~ whitespaces*  ~ valueContainer ~ block }
+ifBlock      =  { "if"~ whitespaces+ ~ valueContainer ~ block }
+caseBlock    =  { "case" ~ whitespaces+  ~ valueContainer ~ block }
+enums = {whitespaces*~nl*~whitespaces*~(ident ~ whitespaces*~nl* ~("," ~whitespaces*~nl*~ ident~whitespaces*)*)?}
+enumBlock = {decorators?~(pub~whitespaces+)?~"enum"~whitespaces+~ident~whitespaces*~"{"~enums~"}"}
 defaultBlock =  { "default" ~whitespaces*~ block }
-moduleBlock = {(pub ~ whitespaces+)?~"mod"~whitespaces+~ident~whitespaces*~block}
-caseContainer = {whitespaces*  ~ valueContainer ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (caseBlock|defaultBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}"}
+moduleBlock = {decorators?~(pub ~ whitespaces+)?~"mod"~whitespaces+~ident~whitespaces*~block}
+caseContainer = {whitespaces*  ~ valueContainer ~ whitespaces* ~"{"~ (blankWhitespaces ~ (caseBlock|defaultBlock))* ~ blankWhitespaces ~ "}"}
 switchBlock  =  { "switch" ~ caseContainer }
 matchBlock  =  { "match" ~ caseContainer }
-classBlock  =  { "class" ~ whitespaces+  ~ ident ~ (whitespaces* ~ ((nullable ~ whitespaces* ~ typeArguments)|(typeArguments ~ whitespaces* ~ nullable)|typeArguments) ~ whitespaces*)? ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (newBlock|customFnBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}" }
-inlineType = {decorators~(pub ~ whitespaces+)?~"type"~whitespaces+~ident~whitespaces*~"="~whitespaces*~typeContainer}
-typecompFnBlock = {decorators~(pub~whitespaces+)?~"typecomp"~whitespaces+~ident~whitespaces*~(arguments|typeArguments)~block}
+classBlock  =  { decorators?~(pub~whitespaces+)?~"class" ~ whitespaces+  ~ ident ~ (whitespaces* ~ ((nullable ~ whitespaces* ~ typeArguments)|(typeArguments ~ whitespaces* ~ nullable)|typeArguments) ~ whitespaces*)? ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (newBlock|customFnBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}" }
+inlineType = {decorators?~(pub ~ whitespaces+)?~"type"~whitespaces+~ident~whitespaces*~"="~whitespaces*~typeContainer}
+typecompFnBlock = {decorators?~(pub~whitespaces+)?~"typecomp"~whitespaces+~ident~whitespaces*~(arguments|typeArguments)~block}
 attributeValue = {literal|typeContainer}
-decorator = {"@"~whitespaces*~ ident}
-decorators = {whitespaces* ~ nl* ~ whitespaces* ~ decorator ~ whitespaces* ~ (nl+ ~ whitespaces* ~ decorators? ~ whitespaces*)* ~ nl+}
+decorator = {"@"~whitespaces*~ ident ~ (whitespaces+ ~ valueContainer|whitespaces*)?}
+decorators = {(whitespaces* ~ nl* ~ whitespaces* ~ decorator ~ whitespaces* ~ (nl+ ~ whitespaces* ~ decorators ~ whitespaces*)* ~ nl+)?}
 return = {"return"~whitespaces+~valueContainer}
 comment = { ("--[[" ~ (!"--]]" ~ ANY)* ~ "--]]")|("--" ~ (!NEWLINE ~ ANY)*)}
-code         =  { comment | return | matchBlock | typecompFnBlock |inlineType | localFnBlock | moduleBlock | importModule | declareQuick | declare | ifBlock | classBlock | switchBlock  | value }
+code         =  { enumBlock | comment | return | matchBlock | typecompFnBlock |inlineType | localFnBlock | moduleBlock | importModule | declareQuick | declare | ifBlock | classBlock | switchBlock  | value }
 // i hope this error will be fixed asap. this occurs on 2.6 🤌 codes        = _{blankWhitespaces ~ code ~(blankWhitespaces ~ code?)+}
 codes        = _{(whitespaces+)? ~ (nl+)? ~ (whitespaces+)? ~ code ~ (whitespaces* ~ nl+ ~ whitespaces* ~ code?)*}
 // workaround for 2.6 and onward. (RULE+)?
 // then on the code you MUST BE USING *, no, you cant use that + thingy
 blankWhitespaces = _{(whitespaces+)? ~ (nl+)? ~ (whitespaces+)?}
-blankWhitespacesComma = _{(whitespaces+)? ~ (",")? ~ (whitespaces+)?}
+blankWhitespacesComma = _{blankWhitespaces ~ (",") ~ blankWhitespaces}
 program      =  { SOI ~ codes ~ EOI }
