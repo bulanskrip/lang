@@ -35,7 +35,7 @@ fn       = @{ "fn" }
 async    = @{ "async" }
 new = @{"new"}
 pub = @{"pub"}
-literal = {string | void | bool | int|num | array | evaluate}
+literal = {string | void | bool | int|num | array | evaluate | inlineFnBlock}
 value = {(literal | ((new ~whitespaces+)?~ ident~("." ~ ident)*)) ~ (("." ~ ident) | (whitespaces*)~caller | index)*}
 valueContainer             =  {value ~ whitespaces* ~(operator ~ whitespaces* ~ valueContainer ~ whitespaces*)* }
 identBase         = _{ (ASCII_ALPHA | "$" | "_" |int)* }
@@ -79,7 +79,6 @@ matchBlock  =  { "match" ~ caseContainer }
 classBlock  =  { decorators?~(pub~whitespaces+)?~"class" ~ whitespaces+  ~ ident ~ (whitespaces* ~ ((nullable ~ whitespaces* ~ typeArguments)|(typeArguments ~ whitespaces* ~ nullable)|typeArguments) ~ whitespaces*)? ~ whitespaces* ~"{" ~whitespaces*~ (nl*~whitespaces* ~ (newBlock|customFnBlock) ~ whitespaces*)* ~ nl* ~whitespaces* ~ "}" }
 inlineType = {decorators?~(pub ~ whitespaces+)?~"type"~whitespaces+~ident~whitespaces*~"="~whitespaces*~typeContainer}
 typecompFnBlock = {decorators?~(pub~whitespaces+)?~"typecomp"~whitespaces+~ident~whitespaces*~(arguments|typeArguments)~block}
-attributeValue = {literal|typeContainer}
 decorator = {"@"~whitespaces*~ ident ~ (whitespaces+ ~ valueContainer|whitespaces*)?}
 decorators = {(whitespaces* ~ nl* ~ whitespaces* ~ decorator ~ whitespaces* ~ (nl+ ~ whitespaces* ~ decorators ~ whitespaces*)* ~ nl+)?}
 return = {"return"~whitespaces+~valueContainer}
@@ -90,5 +89,4 @@ codes        = _{(whitespaces+)? ~ (nl+)? ~ (whitespaces+)? ~ code ~ (whitespace
 // workaround for 2.6 and onward. (RULE+)?
 // then on the code you MUST BE USING *, no, you cant use that + thingy
 blankWhitespaces = _{(whitespaces+)? ~ (nl+)? ~ (whitespaces+)?}
-blankWhitespacesComma = _{blankWhitespaces ~ (",") ~ blankWhitespaces}
 program      =  { SOI ~ codes ~ EOI }
