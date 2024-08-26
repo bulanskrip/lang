@@ -3,5 +3,5 @@ name = "lang"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[dev_dependencies]
 pest-language-server = "0.3.11"
