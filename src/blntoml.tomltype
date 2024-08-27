@@ -1,0 +1,7 @@
+[package] required
+required name = string
+required version = string
+required edition = interger
+
+[dependencies]
+-any- = {version:string, features:array}
