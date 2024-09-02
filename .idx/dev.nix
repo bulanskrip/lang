@@ -55,6 +55,7 @@
     workspace = {
       # Runs when a workspace is first created
       onCreate = {
+        installRustAndDeps = "read -r -p 'This install script is IMPORTANT, do not close it for any reasons' -t 5 -n 1 -s; rustup toolchain add stable; rustup default stable; cargo install";
         # Example: install JS dependencies from NPM
         # npm-install = "npm install";
       };
