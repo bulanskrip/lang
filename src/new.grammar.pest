@@ -1,0 +1,110 @@
+COMMENT       =  { ("--" ~ newline ~ (!"--" ~ ANY)* ~ "--") | ("--" ~ (!newline ~ ANY)* ~ newline?) }
+whitespace    = _{ WHITE_SPACE }
+newline       = _{ "\n" | "\r\n" | "\r" }
+anyWhitespace = _{ newline | whitespace }
+end           = _{ newline | ";" }
+
+plus               = @{ "+" }
+minus              = @{ "-" }
+multiply           = @{ "*" }
+divide             = @{ "/" }
+modulo             = @{ "%" }
+smallerThan        = @{ "<" }
+biggerThan         = @{ ">" }
+nullOr             = @{ "??" }
+signedShiftLeft    = @{ "<<" }
+signedShiftRight   = @{ ">>" }
+unsignedShiftLeft  = @{ "<<<" }
+unsignedShiftRight = @{ ">>>" }
+operator           =  { plus | minus | multiply | divide | modulo | biggerThan | smallerThan | nullOr | unsignedShiftLeft | unsignedShiftRight | signedShiftLeft | signedShiftRight }
+
+bracesOpen       = _{ "{" }
+bracesClose      = _{ "}" }
+parenthesesOpen  = _{ "(" }
+parenthesesClose = _{ ")" }
+bracketsOpen     = _{ "[" }
+bracketsClose    = _{ "]" }
+
+evaluate = { parenthesesOpen ~ whitespace* ~ value ~ whitespace* ~ parenthesesClose }
+
+reserved = { ifKeyword | doKeyword | whileKeyword | await | async | elseKeyword | typefuncKeyword | typeKeyword | tryKeyword | exceptKeyword | switchKeyword | matchKeyword | caseKeyword | defaultKeyword | configKeyword }
+
+ifKeyword       = _{ "if" }
+doKeyword       = _{ "do" }
+whileKeyword    = _{ "while" }
+importKeyword   = _{ "import" }
+await           = @{ "await" }
+async           = @{ "async" }
+fromKeyword     = _{ "from" }
+elseKeyword     = _{ "else" }
+typefuncKeyword = _{ "typefunc" }
+typeKeyword     = _{ "type" }
+tryKeyword      = _{ "try" }
+exceptKeyword   = _{ "except" }
+switchKeyword   = _{ "switch" }
+matchKeyword    = _{ "match" }
+caseKeyword     = _{ "case" }
+defaultKeyword  = _{ "default" }
+configKeyword    = _{ "config" }
+
+character = _{ ASCII_ALPHA | ASCII_DIGIT | "_" }
+
+ident       = @{ !reserved ~ (ASCII_ALPHA | "_") ~ character* }
+index       =  { bracketsOpen ~ whitespace* ~ value ~ whitespace* ~ bracketsClose }
+nestedIdent = _{ (ident | literal) ~ (("." ~ ident) | index)+ }
+
+reference = { nestedIdent | ident }
+caller    = { parenthesesOpen ~ whitespace* ~ (value ~ (whitespace* ~ "," ~ whitespace* ~ value)*)? ~ whitespace* ~ parenthesesClose ~ newline* }
+function  = { (await ~ whitespace+)? ~ reference ~ caller }
+
+quote      = { (!"\"" ~ ANY)* }
+apostrophe = { (!"'" ~ ANY)* }
+string     = { ("\"" ~ quote ~ "\"") | ("'" ~ apostrophe ~ "'") }
+
+interger           = @{ ASCII_DIGIT+ }
+decimal            = @{ interger ~ "." ~ interger }
+hexadecimal        =  { (!("0x" | "0X")) ~ ASCII_ALPHANUMERIC+ }
+hexadecimalWrapper = _{ "0" ~ ("x" | "X") ~ hexadecimal }
+number             = _{ interger | decimal | hexadecimalWrapper }
+negativeNumber     =  { "-" ~ number }
+exponentNumber     =  { whitelistExponent ~ whitespace* ~ "e" ~ whitespace* ~ whitelistExponent }
+literal            = _{ boolean | string | number | negativeNumber | exponentNumber | hexadecimalWrapper }
+whitelistCalculate = _{ exponentNumber | number | hexadecimalWrapper }
+whitelistExponent  = _{ decimal | interger }
+calculate          =  { whitelistCalculate ~ (whitespace* ~ operator ~ whitespace* ~ whitelistCalculate ~ whitespace*)+ }
+
+true    = @{ "true" }
+false   = @{ "false" }
+boolean =  { true | false }
+
+and               = @{ "and" }
+or                = @{ "or" }
+conditionOperator =  { or | and }
+
+equal           = @{ "==" }
+isntEqual       = @{ "!=" }
+is              = @{ "is" }
+isnt            = @{ "!is" | "isnt" }
+compareOperator =  { equal | isntEqual | is | isnt }
+
+value     = { literal | reference | calculate | function | evaluate }
+condition = { (value ~ whitespace* ~ compareOperator ~ whitespace* ~ value ~ whitespace* ~ (conditionOperator ~ whitespace* ~ value)?) | boolean | reference }
+
+if      = { ifKeyword ~ blockWithCondition }
+doWhile = { doKeyword ~ whitespace+ ~ whileKeyword ~ blockWithCondition }
+while   = { whileKeyword ~ blockWithCondition }
+case    = { caseKeyword ~ blockWithValue }
+default = { defaultKeyword ~ block }
+config   = { configKeyword ~ block }
+switch  = { switchKeyword ~ blockOfCases }
+match   = { matchKeyword ~ blockOfCases }
+import  = { importKeyword ~ (whitespace* ~ string) | (whitespace+ ~ ident ~ whitespace+ ~ fromKeyword ~ whitespace* ~ string) }
+
+block               =  { anyWhitespace* ~ bracesOpen ~ (anyWhitespace* ~ instruction ~ anyWhitespace*)+ ~ bracesClose ~ anyWhitespace* }
+cases               = _{ anyWhitespace* ~ (case | default) ~ (anyWhitespace+ | (whitespace* ~ end+ ~ cases))? }
+blockOfCases        = _{ anyWhitespace* ~ bracesOpen ~ cases ~ bracesClose ~ anyWhitespace* }
+blockWithValue      = _{ whitespace+ ~ value ~ whitespace* ~ block }
+blockWithCondition  = _{ whitespace+ ~ condition ~ whitespace* ~ block }
+instruction         = _{ import | function | if | switch | match | while | doWhile }
+topLevelInstruction = _{ config }
+program             =  { SOI ~ ((anyWhitespace* ~ topLevelInstruction ~ anyWhitespace*)? ~ (anyWhitespace* ~ instruction ~ anyWhitespace*)+) | anyWhitespace* ~ EOI }
